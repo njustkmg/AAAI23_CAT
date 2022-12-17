@@ -57,7 +57,7 @@ We assume that you are in `<path-to-root>` (i.e., root of this repository).
 
 ### 3.1. Pre-training
 
-** Pre-training CAT**  
+**Pre-training CAT**  
 Our pre-training is based on distributed environment (multi-GPUs training) using [ddp environment supported by pytorch-lightning](https://pytorch-lightning.readthedocs.io/en/latest/advanced/multi_gpu.html).  
 The default setting requires 8-GPUs (of V100) with a batch of 256. However, you can set the parameter `config.DISTRIBUTED.NUM_PROC_PER_NODE` to the number of gpus you can use or change `config.TRAIN.BATCH_SIZE.effective_batch_size`.
 
