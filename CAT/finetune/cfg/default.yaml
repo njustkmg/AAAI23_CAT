@@ -97,7 +97,7 @@ config:
             num_hidden_layers: 2
             pooling_method: center
     audio:
-      audio_mode: True
+      audio_mode: False
       audio_encoder:
         name: LGSS_audionet
         params:
