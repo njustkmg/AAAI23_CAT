@@ -113,13 +113,6 @@ PYTHONPATH=${WORK_DIR} python3 ${WORK_DIR}/finetune/main.py \
 ## 4. Citation
 If you find this code helpful for your research, please cite our paper.
 ```
-@article{mun2022boundary,
-  title={Boundary-aware Self-supervised Learning for Video Scene Segmentation},
-  author={Mun, Jonghwan and Shin, Minchul and Han, Gunsu and
-          Lee, Sangho and Ha, Sungsu and Lee, Joonseok and Kim, Eun-sol},
-  journal={arXiv preprint arXiv:2201.05277},
-  year={2022}
-}
 ```
 
 
