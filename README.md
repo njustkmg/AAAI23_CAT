@@ -115,6 +115,3 @@ If you find this code helpful for your research, please cite our paper.
 ```
 ```
 
-
-## 5. Acknowledgements
-This repository is based on [bassl](https://github.com/kakaobrain/bassl), and you may refer to it for more details about the code.
