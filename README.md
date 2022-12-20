@@ -1,6 +1,6 @@
 
 # CAT
-This is an official PyTorch Implementation of **Towards Global Video Scene Segmentation with Context-Aware Transformer(CAT)** 
+This is an official PyTorch Implementation of **Towards Global Video Scene Segmentation with Context-Aware Transformer(CAT)**. This repository is inspired by [bassl](https://github.com/kakaobrain/bassl).
 
 ## 1. Environmental Setup
 We have tested the implementation on the following environment:
@@ -114,7 +114,3 @@ PYTHONPATH=${WORK_DIR} python3 ${WORK_DIR}/finetune/main.py \
 If you find this code helpful for your research, please cite our paper.
 ```
 ```
-
-
-## 5. Acknowledgements
-This repository is based on [bassl](https://github.com/kakaobrain/bassl), and you may refer to it for more details about the code.
