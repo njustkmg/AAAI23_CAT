@@ -2,6 +2,8 @@
 # CAT
 This is an official PyTorch Implementation of **Towards Global Video Scene Segmentation with Context-Aware Transformer(CAT)**. This repository is inspired by [bassl](https://github.com/kakaobrain/bassl).
 
+Proceedings of the 37rd AAAI Conference on Artificial Intelligence (AAAI-2023) 
+
 ## 1. Environmental Setup
 We have tested the implementation on the following environment:
   * Python 3.7.7 / PyTorch 1.7.1 / torchvision 0.8.2 / CUDA 11.0 / Ubuntu 18.04   
