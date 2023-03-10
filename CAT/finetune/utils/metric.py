@@ -7,8 +7,7 @@ from collections import defaultdict
 from typing import Dict
 
 import numpy as np
-import torch
-import torchmetrics
+from misc.utils import *
 from sklearn.metrics import (
     average_precision_score,
     precision_recall_curve,
@@ -20,7 +19,7 @@ from sklearn.metrics import (
 __DEBUG__ = False
 
 
-class F1ScoreMetric(torchmetrics.classification.F1):
+class F1ScoreMetric(metrics.classification.F1):
     def __init__(self, **metric_args):
 
         metrics_args = {"compute_on_step": False, "dist_sync_on_step": True}
@@ -28,11 +27,7 @@ class F1ScoreMetric(torchmetrics.classification.F1):
         super().__init__(**metrics_args)
 
 
-class AveragePrecisionMetric(torchmetrics.classification.AveragePrecision):
-    """
-    ref:
-        - https://github.com/PyTorchLightning/metrics/blob/master/torchmetrics/classification/average_precision.py
-    """
+class AveragePrecisionMetric(metrics.classification.AveragePrecision):
 
     def __init__(self, **metric_args):
 
@@ -41,7 +36,7 @@ class AveragePrecisionMetric(torchmetrics.classification.AveragePrecision):
         super().__init__(**metrics_args)
 
 
-class SklearnAPMetric(torchmetrics.Metric):
+class SklearnAPMetric(metrics.Metric):
     def __init__(self, **metric_args):
 
         metrics_args = {"compute_on_step": False, "dist_sync_on_step": True}
@@ -51,30 +46,30 @@ class SklearnAPMetric(torchmetrics.Metric):
         self.add_state("gts", default=[], dist_reduce_fx="cat")
 
     def update(self, prob, gts):
-        assert isinstance(prob, torch.FloatTensor) or isinstance(
-            prob, torch.cuda.FloatTensor
+        assert isinstance(prob, ms.FloatTensor) or isinstance(
+            prob, metrics.cuda.FloatTensor
         )
-        assert isinstance(gts, torch.LongTensor) or isinstance(
-            gts, torch.cuda.LongTensor
+        assert isinstance(gts, ms.LongTensor) or isinstance(
+            gts, ms.cuda.LongTensor
         )
 
         self.prob.append(prob)
         self.gts.append(gts)
 
-    def compute(self) -> torch.Tensor:
+    def compute(self) -> ms.Tensor:
         prob = self.prob.cpu().numpy()
         gts = self.gts.cpu().numpy()
         ap = average_precision_score(np.nan_to_num(gts), np.nan_to_num(prob))
         precision, recall, thresholds = precision_recall_curve(
             np.nan_to_num(gts), np.nan_to_num(prob)
         )
-        ap = torch.Tensor([ap]).type_as(self.prob)
-        precision = torch.Tensor([precision]).type_as(self.prob)
-        recall = torch.Tensor([recall]).type_as(self.prob)
+        ap = ms.Tensor([ap]).type_as(self.prob)
+        precision = ms.Tensor([precision]).type_as(self.prob)
+        recall = ms.Tensor([recall]).type_as(self.prob)
         return ap, precision, recall
 
 
-class SklearnAUCROCMetric(torchmetrics.Metric):
+class SklearnAUCROCMetric(metrics.Metric):
     def __init__(self, **metric_args):
 
         metrics_args = {"compute_on_step": False, "dist_sync_on_step": True}
@@ -84,34 +79,29 @@ class SklearnAUCROCMetric(torchmetrics.Metric):
         self.add_state("gts", default=[], dist_reduce_fx="cat")
 
     def update(self, prob, gts):
-        assert isinstance(prob, torch.FloatTensor) or isinstance(
-            prob, torch.cuda.FloatTensor
+        assert isinstance(prob, ms.FloatTensor) or isinstance(
+            prob, ms.cuda.FloatTensor
         )
-        assert isinstance(gts, torch.LongTensor) or isinstance(
-            gts, torch.cuda.LongTensor
+        assert isinstance(gts, ms.LongTensor) or isinstance(
+            gts, ms.cuda.LongTensor
         )
 
         self.prob.append(prob)
         self.gts.append(gts)
 
-    def compute(self) -> torch.Tensor:
+    def compute(self) -> ms.Tensor:
         prob = self.prob.cpu().numpy()
         gts = self.gts.cpu().numpy()
         auc = roc_auc_score(np.nan_to_num(gts), np.nan_to_num(prob))
         fpr, tpr, threshold = roc_curve(np.nan_to_num(gts), np.nan_to_num(prob))
 
-        auc = torch.Tensor([auc]).type_as(self.prob)
-        fpr = torch.Tensor([fpr]).type_as(self.prob)
-        tpr = torch.Tensor([tpr]).type_as(self.prob)
+        auc = ms.Tensor([auc]).type_as(self.prob)
+        fpr = ms.Tensor([fpr]).type_as(self.prob)
+        tpr = ms.Tensor([tpr]).type_as(self.prob)
         return auc, fpr, tpr
 
 
-class AccuracyMetric(torchmetrics.classification.Accuracy):
-    """
-    ref:
-        - https://github.com/PyTorchLightning/metrics/blob/master/torchmetrics/classification/accuracy.py
-        - https://github.com/PyTorchLightning/metrics/blob/f61317ca17e3facc16e09c0e6cef0680961fc4ff/torchmetrics/functional/classification/accuracy.py#L72
-    """
+class AccuracyMetric(metrics.classification.Accuracy):
 
     def __init__(self, **metric_args):
 
@@ -121,18 +111,18 @@ class AccuracyMetric(torchmetrics.classification.Accuracy):
 
         self.eps = 1e-5
         self.threshold = 0.5
-        self.add_state("tp", default=torch.tensor(0), dist_reduce_fx="sum")
-        self.add_state("fp", default=torch.tensor(0), dist_reduce_fx="sum")
-        self.add_state("tn", default=torch.tensor(0), dist_reduce_fx="sum")
-        self.add_state("fn", default=torch.tensor(0), dist_reduce_fx="sum")
+        self.add_state("tp", default=ms.tensor(0), dist_reduce_fx="sum")
+        self.add_state("fp", default=ms.tensor(0), dist_reduce_fx="sum")
+        self.add_state("tn", default=ms.tensor(0), dist_reduce_fx="sum")
+        self.add_state("fn", default=ms.tensor(0), dist_reduce_fx="sum")
 
     def update(self, prob, labels):
 
-        assert isinstance(prob, torch.FloatTensor) or isinstance(
-            prob, torch.cuda.FloatTensor
+        assert isinstance(prob, ms.FloatTensor) or isinstance(
+            prob, ms.cuda.FloatTensor
         )
-        assert isinstance(labels, torch.LongTensor) or isinstance(
-            labels, torch.cuda.LongTensor
+        assert isinstance(labels, ms.LongTensor) or isinstance(
+            labels, ms.cuda.LongTensor
         )
 
         gt_one = labels == 1
@@ -145,7 +135,7 @@ class AccuracyMetric(torchmetrics.classification.Accuracy):
         self.tn += (gt_zero * pred_zero).sum()
         self.fn += (gt_one * pred_zero).sum()
 
-    def compute(self) -> Dict[str, torch.Tensor]:
+    def compute(self) -> Dict[str, ms.Tensor]:
         # compute final result
         tp = self.tp
         fp = self.fp
@@ -168,7 +158,7 @@ class AccuracyMetric(torchmetrics.classification.Accuracy):
         return output
 
 
-class MovieNetMetric(torchmetrics.Metric):
+class MovieNetMetric(metrics.Metric):
     def __init__(self):
         super().__init__(compute_on_step=False, dist_sync_on_step=True)
         self.add_state("vidx_data", default=[], dist_reduce_fx="cat")
@@ -185,14 +175,14 @@ class MovieNetMetric(torchmetrics.Metric):
         self.shot_path = "./data/movienet/scene318/shot_movie318"
 
     def update(self, vid, sid, pred, gt):
-        # assert isinstance(vid, torch.Tensor)
+        # assert isinstance(vid, ms.Tensor)
 
-        self.vidx_data.append(pred.new_tensor(self.vid2idx[vid], dtype=torch.long))
-        self.sid_data.append(pred.new_tensor(int(sid), dtype=torch.long))
+        self.vidx_data.append(pred.new_tensor(self.vid2idx[vid], dtype=ms.long))
+        self.sid_data.append(pred.new_tensor(int(sid), dtype=ms.long))
         self.pred_data.append(pred)
         self.gt_data.append(gt)
 
-    def compute(self) -> torch.Tensor:
+    def compute(self) -> ms.Tensor:
 
         result = {}
         for vidx, sid, pred, gt in zip(
@@ -210,7 +200,7 @@ class MovieNetMetric(torchmetrics.Metric):
         miou = self._compute_mIoU(result)
 
         del result  # recall, recall_one, pred, gt, preds, gts
-        torch.cuda.empty_cache()
+        ms.cuda.empty_cache()
         return recall, recall_at_second, miou
 
     def _compute_exact_recall(self, result):
@@ -228,7 +218,7 @@ class MovieNetMetric(torchmetrics.Metric):
         # print('Recall: ', np.mean(recall))
 
         recall = np.mean(recall)
-        pt_recall = self.pred_data[0].new_tensor(recall, dtype=torch.float)
+        pt_recall = self.pred_data[0].new_tensor(recall, dtype=ms.float)
 
         del recall, recall_one, pred, gt, preds, gts
         return pt_recall
@@ -270,7 +260,7 @@ class MovieNetMetric(torchmetrics.Metric):
             recall.append(recall_one)
 
         recall = np.mean(recall)
-        pt_recall = self.pred_data[0].new_tensor(recall, dtype=torch.float)
+        pt_recall = self.pred_data[0].new_tensor(recall, dtype=ms.float)
         return pt_recall
 
     def _compute_mIoU(self, result):
@@ -298,7 +288,7 @@ class MovieNetMetric(torchmetrics.Metric):
             mious.append(np.mean([miou1, miou2]))
 
         mious = np.mean(mious)
-        pt_miou = self.pred_data[0].new_tensor(mious, dtype=torch.float)
+        pt_miou = self.pred_data[0].new_tensor(mious, dtype=ms.float)
         return pt_miou
 
     def get_scene_list(self, pair_list, shot_list):

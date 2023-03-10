@@ -1,16 +1,17 @@
 import random
-from typing import Any, Dict
+import mindspore
+import mindspore.dataset.vision
+import mindspore.dataset.transforms as transforms
 
-import torchvision
-from classy_vision.dataset.transforms import register_transform
-from classy_vision.dataset.transforms.classy_transform import ClassyTransform
+from typing import Any, Dict
+from misc.utils import *
 
 
 @register_transform("VideoRandomGrayScale")
 class VideoRandomGrayScale(ClassyTransform):
     def __init__(self, p=0.2):
         self.p = p
-        self.tfm = torchvision.transforms.Grayscale(num_output_channels=3)
+        self.tfm = vision.transforms.Grayscale(num_output_channels=3)
 
     def __call__(self, imgmap):
         assert isinstance(imgmap, list)

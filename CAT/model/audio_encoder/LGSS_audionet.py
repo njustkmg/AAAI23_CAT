@@ -1,38 +1,36 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from misc.utils import *
 
-
-class audnet(nn.Module):
+class audnet(Cell):
     def __init__(self, cfg):
         super(audnet, self).__init__()
-        self.conv1 = nn.Conv2d(1, 64, kernel_size=(3,3), stride=(2,1), padding=0)
-        self.bn1 = nn.BatchNorm2d(64)
-        self.relu1 = nn.ReLU(inplace=True)
-        self.pool1 = nn.MaxPool2d(kernel_size=(1,3))
+        self.conv1 = Conv2d(1, 64, kernel_size=(3,3), stride=(2,1), padding=0)
+        self.bn1 = BatchNorm2d(64)
+        self.relu1 = ReLU()
+        self.pool1 = MaxPool2d(kernel_size=(1,3),stride=(1,3))
 
-        self.conv2 = nn.Conv2d(64, 192, kernel_size=(3,3), stride=(2,1), padding=0)
-        self.bn2 = nn.BatchNorm2d(192)
-        self.relu2 = nn.ReLU(inplace=True)
-        # self.pool2 = nn.MaxPool2d(kernel_size=(1,3))
+        self.conv2 = Conv2d(64, 192, kernel_size=(3,3), stride=(2,1), padding=0)
+        self.bn2 = BatchNorm2d(192)
+        self.relu2 = ReLU()
+        # self.pool2 = MaxPool2d(kernel_size=(1,3))
 
-        self.conv3 = nn.Conv2d(192, 384, kernel_size=(3,3), stride=(2,1), padding=0)
-        self.bn3 = nn.BatchNorm2d(384)
-        self.relu3 = nn.ReLU(inplace=True)
+        self.conv3 = Conv2d(192, 384, kernel_size=(3,3), stride=(2,1), padding=0)
+        self.bn3 = BatchNorm2d(384)
+        self.relu3 = ReLU()
 
-        self.conv4 = nn.Conv2d(384, 256, kernel_size=(3,3), stride=(2,2), padding=0)
-        self.bn4 = nn.BatchNorm2d(256)
-        self.relu4 = nn.ReLU(inplace=True)
+        self.conv4 = Conv2d(384, 256, kernel_size=(3,3), stride=(2,2), padding=0)
+        self.bn4 = BatchNorm2d(256)
+        self.relu4 = ReLU()
 
-        self.conv5 = nn.Conv2d(256, 256, kernel_size=(3,3), stride=(2,2), padding=0)
-        self.bn5 = nn.BatchNorm2d(256)
-        self.relu5 = nn.ReLU(inplace=True)
-        self.pool5 = nn.MaxPool2d(kernel_size=(2,2))
+        self.conv5 = Conv2d(256, 256, kernel_size=(3,3), stride=(2,2), padding=0)
+        self.bn5 = BatchNorm2d(256)
+        self.relu5 = ReLU()
+        self.pool5 = MaxPool2d(kernel_size=(2,2),stride=(2,2))
 
-        self.conv6 = nn.Conv2d(256, cfg.output_dim, kernel_size=(3,2), padding=0)
-        self.bn6 = nn.BatchNorm2d(cfg.output_dim)
-        self.relu6 = nn.ReLU(inplace=True)
-        self.fc = nn.Linear(cfg.output_dim, cfg.output_dim)
+        self.conv6 = Conv2d(256, cfg.output_dim, kernel_size=(3,2), padding=0)
+        self.bn6 = BatchNorm2d(cfg.output_dim)
+        self.relu6 = ReLU()
+        #初始化方法不同，torch1.7.1为均匀分布，mindspore weight为标准正态分布，bias为0
+        self.fc = Dense(cfg.output_dim, cfg.output_dim) 
 
     def forward(self, x):  # [bs,1,257,90]
         x = self.pool1(self.relu1(self.bn1(self.conv1(x))))

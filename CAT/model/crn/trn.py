@@ -1,5 +1,6 @@
-import torch
-import torch.nn as nn
+import mindspore
+from misc.utils import *
+
 from transformers.models.bert.modeling_bert import (
     BertEncoder,
     BertOnlyMLMHead,
@@ -12,7 +13,7 @@ class BertMLMHead(BertOnlyMLMHead):
         super(BertMLMHead, self).__init__(cfg)
 
 
-class BertITMHead(nn.Module):
+class BertITMHead(Cell):
     def __init__(self, cfg):
         super(BertITMHead, self).__init__()
         self.transform = BertPredictionHeadTransform(cfg)
@@ -21,10 +22,10 @@ class BertITMHead(nn.Module):
     def forward(self, hidden_states):
         hidden_states = self.transform(hidden_states)
         hidden_states = self.decoder(hidden_states)
-        return torch.sigmoid(hidden_states).squeeze(1)
+        return ms.sigmoid(hidden_states).squeeze(1)
 
 
-class BertLMPredictionHead(nn.Module):
+class BertLMPredictionHead(Cell):
     def __init__(self, cfg, num_classes):
         super(BertLMPredictionHead, self).__init__()
         self.transform = BertPredictionHeadTransform(cfg)
@@ -36,7 +37,7 @@ class BertLMPredictionHead(nn.Module):
         return hidden_states
 
 
-class ShotEmbedding(nn.Module):
+class ShotEmbedding(Cell):
     def __init__(self, cfg):
         super().__init__()
 
@@ -49,14 +50,14 @@ class ShotEmbedding(nn.Module):
         self.LayerNorm = nn.LayerNorm(cfg.hidden_size, eps=1e-12)
         self.dropout = nn.Dropout(cfg.hidden_dropout_prob)
 
-        self.register_buffer("pos_ids", torch.arange(nn_size, dtype=torch.long))
+        self.register_buffer("pos_ids", ms.arange(nn_size, dtype=ms.long))
 
     def forward(
         self,
-        shot_emb: torch.Tensor,
-        mask: torch.Tensor = None,
-        pos_ids: torch.Tensor = None,
-    ) -> torch.Tensor:
+        shot_emb: ms.Tensor,
+        mask: ms.Tensor = None,
+        pos_ids: ms.Tensor = None,
+    ) -> ms.Tensor:
 
         assert len(shot_emb.size()) == 3
 
@@ -73,7 +74,7 @@ class ShotEmbedding(nn.Module):
         cls_emb = shot_emb.mean(dim=1)
 
         # embedding shots
-        shot_emb = torch.cat([cls_emb[:, None, :], shot_emb], dim=1)
+        shot_emb = ms.cat([cls_emb[:, None, :], shot_emb], dim=1)
         shot_emb = self.shot_embedding(shot_emb)
         pos_emb = self.position_embedding(pos_ids)
         embeddings = shot_emb + pos_emb[None, :]
@@ -81,7 +82,7 @@ class ShotEmbedding(nn.Module):
         return embeddings
 
 
-class TransformerCRN(nn.Module):
+class TransformerCRN(Cell):
     def __init__(self, cfg):
         super().__init__()
 
@@ -94,27 +95,27 @@ class TransformerCRN(nn.Module):
         attention_glocal_window = cfg.attention_local_window
         # self.register_buffer(
         #     "attention_mask",
-        #     self._get_extended_attention_mask(torch.ones((1, nn_size)).float()),
+        #     self._get_extended_attention_mask(ms.ones((1, nn_size)).float()),
         # )
 
         # local_global_attention
         self.register_buffer(
             "local_global_attention_mask",
-            self._get_local_global_attention_mask(torch.zeros((1, num_head, nn_size, nn_size)).float(),
+            self._get_local_global_attention_mask(ms.zeros((1, num_head, nn_size, nn_size)).float(),
                                               attention_glocal_window)
         )
 
     def forward(
         self,
-        shot: torch.Tensor,
-        mask: torch.Tensor = None,
-        pos_ids: torch.Tensor = None,
+        shot: ms.Tensor,
+        mask: ms.Tensor = None,
+        pos_ids: ms.Tensor = None,
         pooling_method: str = None,
     ):
         # if self.attention_mask.shape[1] != (shot.shape[1] + 1):
         #     n_shot = shot.shape[1] + 1  # +1 for CLS token
         #     attention_mask = self._get_extended_attention_mask(
-        #         torch.ones((1, n_shot), dtype=torch.float, device=shot.device)
+        #         ms.ones((1, n_shot), dtype=ms.float, device=shot.device)
         #     )
         # else:
         attention_mask = self.local_global_attention_mask

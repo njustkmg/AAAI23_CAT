@@ -1,14 +1,14 @@
 """
 - kNN Precision
 """
+import mindspore
 
 from collections import defaultdict
-
-import torch
-import torchmetrics
+from misc.utils import *
 
 
-class KnnPrecisionMetric(torchmetrics.Metric):
+
+class KnnPrecisionMetric(metrics.Metric):
     def __init__(self, top_k_list):
         super().__init__(compute_on_step=False, dist_sync_on_step=True)
         self.add_state("feat_data", default=[], dist_reduce_fx=None)
@@ -18,15 +18,15 @@ class KnnPrecisionMetric(torchmetrics.Metric):
         self.max_k = max(self.top_k_list)
 
     def update(self, vid, invideo_scene_id, feat):
-        assert isinstance(invideo_scene_id, torch.Tensor)
-        assert isinstance(vid, torch.Tensor)
-        assert isinstance(feat, torch.Tensor)
+        assert isinstance(invideo_scene_id, ms.Tensor)
+        assert isinstance(vid, ms.Tensor)
+        assert isinstance(feat, ms.Tensor)
         self.feat_data.append(feat)
         self.vids_data.append(vid)
         self.scene_data.append(invideo_scene_id)
 
 
-    def compute(self) -> torch.Tensor:
+    def compute(self) -> ms.Tensor:
         score = dict()
         pool_feats = defaultdict(list)
         pool_invideo_scene_id = defaultdict(list)
@@ -47,10 +47,10 @@ class KnnPrecisionMetric(torchmetrics.Metric):
         for top_k in self.top_k_list:
             score[top_k] = {"correct": 0, "total": 0}
         for vid, gt in pool_gts.items():
-            X = torch.stack(pool_feats[vid])
-            sim = torch.matmul(X, X.t())
-            sim = sim - 999 * torch.eye(sim.shape[0]).type_as(sim)  # exclude self
-            indices = torch.argsort(sim, descending=True)
+            X = ms.stack(pool_feats[vid])
+            sim = ms.matmul(X, X.t())
+            sim = sim - 999 * ms.eye(sim.shape[0]).type_as(sim)  # exclude self
+            indices = ms.argsort(sim, descending=True)
             assert indices.shape[1] >= self.max_k, f"{indices.shape[1]} >= {self.max_k}"
             indices = indices[:, : self.max_k]
 
@@ -71,5 +71,5 @@ class KnnPrecisionMetric(torchmetrics.Metric):
                 100.0 * score[top_k]["correct"] / score[top_k]["total"]
             )
         del X, sim, indices, pool_feats, pool_invideo_scene_id, pool_gts
-        torch.cuda.empty_cache()
+        ms.cuda.empty_cache()
         return score

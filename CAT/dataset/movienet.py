@@ -6,8 +6,9 @@ import copy
 import einops
 import ndjson
 import numpy as np
-import torch
+from misc.utils import *
 from dataset.base import BaseDataset
+import mindspore
 
 
 class MovieNetDataset(BaseDataset):
@@ -91,7 +92,7 @@ class MovieNetDataset(BaseDataset):
             view2 = einops.rearrange(view2, "(s k) c ... -> s (k c) ...", s=nshot)
 
             # video shape: [nView=2,S,C,H,W]
-            video = torch.stack([view1, view2])
+            video = ms.stack([view1, view2])
             payload["video_visual"] = video
 
         elif self.sampling_method in ["shotcol", "bassl+shotcol", "bassl"]:
@@ -154,7 +155,7 @@ class MovieNetDataset(BaseDataset):
         for i, pos in enumerate(selected_pos):
             output_order[pos] = target_pos_shuffled[i]
             output_target[target_pos_shuffled[i]] = pos
-        return torch.tensor(output_order), torch.tensor(output_target)
+        return ms.tensor(output_order), ms.tensor(output_target)
 
     def _getitem_for_knn_val(self, idx: int):
         data = self.anno_data[
@@ -223,7 +224,7 @@ class MovieNetDataset(BaseDataset):
                     self.visual_shot_repr_dir, self.tmpl.format(vid, f"{sidx:04d}")
                 )
                 shot = np.load(shot_feat_path)
-                shot = torch.from_numpy(shot)
+                shot = ms.from_numpy(shot)
                 if len(shot.shape) > 1:
                     shot = shot.mean(0)
 
@@ -232,12 +233,12 @@ class MovieNetDataset(BaseDataset):
                     self.audio_shot_repr_dir, self.tmpl.format(vid, f"{sidx:04d}")
                 )
                 aud_feat = np.load(aud_feat_path)
-                aud_feat = torch.from_numpy(aud_feat)
+                aud_feat = ms.from_numpy(aud_feat)
                 if len(aud_feat.shape) > 1:
                     aud_feat = aud_feat.mean(0)
                 _video_audio.append(aud_feat)
-            video = torch.stack(_video, dim=0)
-            video_audio = torch.stack(_video_audio, dim=0)
+            video = ms.stack(_video, dim=0)
+            video_audio = ms.stack(_video_audio, dim=0)
         payload = {
             "idx": idx,
             "vid": vid,

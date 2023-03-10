@@ -1,22 +1,17 @@
-
-
 import logging
 import os
 import time
 
-import einops
 import numpy as np
-import pytorch_lightning as pl
-import torch
-import torch.nn.functional as F
-from torch.optim import SGD
-from pl_bolts.optimizers.lars import LARS
-from pl_bolts.optimizers.lr_scheduler import linear_warmup_decay
+import mindspore
+import mindspore.nn as nn
+import mindspore.ops as ops
 
+from misc.utils import *
 from pretrain.utils.hydra_utils import save_config_to_disk
 from pretrain.utils.metric import KnnPrecisionMetric
 
-class PretrainingWrapper(pl.LightningModule):
+class PretrainingWrapper(LModule):
     def __init__(self, cfg, visual_encoder, visual_crn, loss, audio_encoder=None, audio_crn=None):
         super().__init__()
         self.cfg = cfg
@@ -61,7 +56,7 @@ class PretrainingWrapper(pl.LightningModule):
             # we extract feature of each key-frame and average them
             inputs = einops.rearrange(inputs, "b s k c h w -> (b s) k c h w", s=s)
             keyframe_repr = [self.visual_encoder(inputs[:, _k]) for _k in range(k)]
-            x = torch.stack(keyframe_repr).mean(dim=0)  # [k (b s r) d] -> [(b s r) d]
+            x = ms.stack(keyframe_repr).mean(dim=0)  # [k (b s r) d] -> [(b s r) d]
         return x
     
     def extract_audio_representation(self, inputs, is_train=True):
@@ -149,7 +144,7 @@ class PretrainingWrapper(pl.LightningModule):
         score = {}
         t_s = time.time()
         logging.info(
-            f"[device: {torch.cuda.current_device()}] compute metric scores ..."
+            f"[device: {ms.cuda.current_device()}] compute metric scores ..."
         )
         score = self.metric.compute()
         for k, v in score.items():
@@ -175,7 +170,7 @@ class PretrainingWrapper(pl.LightningModule):
             logger=True,
             sync_dist=True,
         )
-        torch.cuda.synchronize()
+        ms.cuda.synchronize()
         self.metric.reset()
         print(dict(score))
         return score
@@ -271,7 +266,7 @@ class PretrainingWrapper(pl.LightningModule):
 
         if self.cfg.TRAIN.OPTIMIZER.scheduler.name == "cosine_with_linear_warmup":
             scheduler = {
-                "scheduler": torch.optim.lr_scheduler.LambdaLR(
+                "scheduler": ms.optim.lr_scheduler.LambdaLR(
                     optimizer,
                     linear_warmup_decay(warmup_steps, total_steps, cosine=True),
                 ),

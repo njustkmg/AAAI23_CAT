@@ -6,7 +6,6 @@ import pprint
 import sys
 from typing import Any, List
 
-import torch
 from omegaconf import DictConfig, OmegaConf
 
 from misc.attr_dict import AttrDict

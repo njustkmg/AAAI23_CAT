@@ -1,6 +1,6 @@
 import os
 import logging
-
+import mindspore
 from finetune.utils.hydra_utils import print_cfg
 from finetune.utils.main_utils import (
     apply_random_seed,

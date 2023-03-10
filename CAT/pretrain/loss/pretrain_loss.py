@@ -1,7 +1,9 @@
 import logging
 
-import torch
-import torch.nn.functional as F
+import mindspore
+import mindspore.ops as ops
+
+from misc.utils import *
 from pretrain.loss.pretext_task import PretextTaskWrapper, SimclrLoss
 
 
@@ -20,7 +22,6 @@ class CATLoss(PretextTaskWrapper):
         b, s, d = shot_repr.shape
         # bnet_shot_repr = self.head_nce(shot_repr)
 
-
         loss = {}
         if self.use_crn:
             masking_mask = kwargs.get("mask", None)
@@ -31,11 +32,11 @@ class CATLoss(PretextTaskWrapper):
         head_shot_repr = self.head_nce(shot_repr)
 
         # Get pseudo-scene bounds
-        with torch.no_grad():
-            scence_idx = torch.tensor([0, s - 1] * b, dtype=torch.long, device=shot_repr.device).view(-1, 2)
+        with ms.no_grad():
+            scence_idx = ms.tensor([0, s - 1] * b, dtype=ms.long, device=shot_repr.device).view(-1, 2)
             center_idx = s // 2
-            normalized_d_emb = F.normalize(head_shot_repr, dim=-1)
-            sim = torch.einsum(
+            normalized_d_emb = normalize(head_shot_repr, dim=-1)
+            sim = ms.einsum(
                 "bd,btd->bt", normalized_d_emb[:, center_idx], normalized_d_emb
             )
 

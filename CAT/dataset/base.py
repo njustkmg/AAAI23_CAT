@@ -5,11 +5,9 @@ import random
 import pickle
 import numpy as np
 import dataset.sampler as sampler
-import torch
-from torch.utils.data import Dataset
-from torchvision.datasets.folder import pil_loader
+from misc.utils import *
 from transform import get_transform
-
+import mindspore
 
 class BaseDataset(Dataset):
     def __init__(self, cfg, mode, is_train):
@@ -31,16 +29,16 @@ class BaseDataset(Dataset):
         return len(self.anno_data)
 
     def load_image(self, path):
-        return pil_loader(path)
+        return p_loader(path)
 
     def load_shot_keyframes(self, path):
         shot = None
         if self.is_train and self.use_single_keyframe:
             # load one randomly sampled keyframe
-            shot = [pil_loader(path.format(random.randint(0, self.num_keyframe - 1)))]
+            shot = [p_loader(path.format(random.randint(0, self.num_keyframe - 1)))]
         else:
             # load all keyframes
-            shot = [pil_loader(path.format(i)) for i in range(self.num_keyframe)]
+            shot = [p_loader(path.format(i)) for i in range(self.num_keyframe)]
         assert shot is not None
         return shot
 
@@ -76,8 +74,8 @@ class BaseDataset(Dataset):
                 aud_feat = cache[vid][this_sidx]
             else:
                 aud_feat = np.zeros((257, 90))
-            _aud_feats.append(torch.from_numpy(aud_feat.astype(np.float32)))
-        aud_feats = torch.stack(_aud_feats,dim=0)
+            _aud_feats.append(ms.from_numpy(aud_feat.astype(np.float32)))
+        aud_feats = ms.stack(_aud_feats,dim=0)
         
         return aud_feats
 
@@ -119,7 +117,7 @@ class BaseDataset(Dataset):
                 self.transform = get_transform(cfg.TEST.TRANSFORM)
 
     def apply_transform(self, images):
-        return torch.stack(self.transform(images), dim=0)  # [T,3,224,224]
+        return ms.stack(self.transform(images), dim=0)  # [T,3,224,224]
 
     def init_sampler(self, cfg):
         # shot sampler

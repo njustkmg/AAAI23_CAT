@@ -1,33 +1,21 @@
+from misc.utils import *
 
-import torch
-import torch.distributed as dist
-from classy_vision.generic.distributed_util import (
-    convert_to_distributed_tensor,
-    convert_to_normal_tensor,
-    is_distributed_training_run,
-)
-
-
-class GatherLayer(torch.autograd.Function):
-    """
-    Gather tensors from all workers with support for backward propagation:
-    This implementation does not cut the gradients as torch.distributed.all_gather does.
-    """
+class GatherLayer(ms.autograd.Function):
 
     @staticmethod
     def forward(ctx, x):
-        output = [torch.zeros_like(x) for _ in range(dist.get_world_size())]
+        output = [ms.zeros_like(x) for _ in range(dist.get_world_size())]
         dist.all_gather(output, x)
         return tuple(output)
 
     @staticmethod
     def backward(ctx, *grads):
-        all_gradients = torch.stack(grads)
+        all_gradients = ms.stack(grads)
         dist.all_reduce(all_gradients)
         return all_gradients[dist.get_rank()]
 
 
-def gather_from_all(tensor: torch.Tensor) -> torch.Tensor:
+def gather_from_all(tensor: ms.Tensor) -> ms.Tensor:
     """
     Similar to classy_vision.generic.distributed_util.gather_from_all
     except that it does not cut the gradients
@@ -45,5 +33,5 @@ def gather_from_all(tensor: torch.Tensor) -> torch.Tensor:
         ]
     else:
         gathered_tensors = [tensor]
-    gathered_tensor = torch.cat(gathered_tensors, 0)
+    gathered_tensor = ms.cat(gathered_tensors, 0)
     return gathered_tensor

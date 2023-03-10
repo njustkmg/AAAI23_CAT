@@ -3,11 +3,13 @@ import logging
 import os
 import sys
 
-from torchsummary import summary
+
 import easydict
 import hydra
-import pytorch_lightning as pl
-import torch
+
+import mindspore
+
+from misc.utils import *
 from dataset import get_collate_fn, get_dataset
 from finetune.finetune_wrapper import FinetuningWrapper
 from finetune.utils.hydra_utils import initialize_config
@@ -55,7 +57,7 @@ def load_pretrained_config(cfg):
 
 
 def init_data_loader(cfg, mode, is_train):
-    data_loader = torch.utils.data.DataLoader(
+    data_loader = ms.utils.data.DataLoader(
         dataset=get_dataset(cfg, mode=mode, is_train=is_train),
         batch_size=cfg.TRAIN.BATCH_SIZE.batch_size_per_proc,
         num_workers=cfg.TRAIN.NUM_WORKERS,
@@ -116,7 +118,7 @@ def init_model(cfg):
         )
         if "AUDIO_PRETRAINED_LOAD_FROM" in cfg and len(cfg.AUDIO_PRETRAINED_LOAD_FROM) > 0 and use_audio_mode:
             print("AUDIO_PRETRAINED_LOAD_FROM is : ", cfg.AUDIO_PRETRAINED_LOAD_FROM)
-            audio_checkpoint = torch.load(os.path.join(
+            audio_checkpoint = ms.load(os.path.join(
             cfg.PRETRAINED_CKPT_PATH, cfg.AUDIO_PRETRAINED_LOAD_FROM, "model-v1.ckpt"))
             for name, param in model.audio_encoder.named_parameters():
                 param.data.copy_(audio_checkpoint['state_dict'][r"audio_encoder.{}".format(name)].data) 

@@ -1,8 +1,11 @@
 from typing import Any, Dict
 
 import numpy as np
-from classy_vision.dataset.transforms import register_transform
-from classy_vision.dataset.transforms.classy_transform import ClassyTransform
+import mindspore
+import mindspore.dataset.vision
+import mindspore.dataset.transforms as transforms
+
+from misc.utils import *
 from PIL import Image
 
 try:

@@ -1,9 +1,10 @@
+import mindspore
+import mindspore.dataset.vision
+import mindspore.dataset.transforms as transforms
 from typing import Any, Dict
 
 import numpy as np
-import torchvision.transforms.functional as F
-from classy_vision.dataset.transforms import register_transform
-from classy_vision.dataset.transforms.classy_transform import ClassyTransform
+from misc.utils import *
 from PIL import Image
 
 try:
@@ -35,10 +36,10 @@ class VideoToTensor(ClassyTransform):
         assert self.std is not None
 
     def __to_tensor__(self, img):
-        return F.to_tensor(img)
+        return to_tensor(img)
 
     def __normalize__(self, img):
-        return F.normalize(img, self.mean, self.std, self.inplace)
+        return TF.normalize(img, self.mean, self.std, self.inplace)
 
     def __call__(self, imgmap):
         assert isinstance(imgmap, list)

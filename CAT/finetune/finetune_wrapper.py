@@ -3,10 +3,8 @@ import logging
 import os
 
 import einops
-import pytorch_lightning as pl
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+import mindspore
+from misc.utils import *
 from finetune.utils.hydra_utils import save_config_to_disk
 from finetune.utils.metric import (
     AccuracyMetric,
@@ -15,9 +13,9 @@ from finetune.utils.metric import (
     SklearnAPMetric,
     SklearnAUCROCMetric,
 )
-from pl_bolts.optimizers.lr_scheduler import linear_warmup_decay
 
-class FinetuningWrapper(pl.LightningModule):
+
+class FinetuningWrapper(LModule):
     def __init__(self, cfg, visual_encoder, visual_crn, audio_encoder, audio_crn):
         super().__init__()
         self.cfg = cfg
@@ -33,11 +31,11 @@ class FinetuningWrapper(pl.LightningModule):
         crn_name = cfg.MODEL.audio.contextual_relation_network.name
         hdim = cfg.MODEL.audio.contextual_relation_network.params[crn_name]["hidden_size"]
 
-        self.visual_head_sbd = nn.Linear(hdim, 2)
-        self.audio_head_sbd = nn.Linear(hdim, 2)
+        self.visual_head_sbd = Dense(hdim, 2)
+        self.audio_head_sbd = Dense(hdim, 2)
 
         # define loss
-        self.criterion = nn.CrossEntropyLoss(weight=torch.tensor([1.0, 4.0], device=self.device))
+        self.criterion = nn.CrossEntropyLoss(weight=ms.tensor([1.0, 4.0], device=self.device))
         # define metrics
         self.acc_metric = AccuracyMetric()
         self.ap_metric = SklearnAPMetric()
@@ -56,7 +54,7 @@ class FinetuningWrapper(pl.LightningModule):
             except Exception as err:
                 logging.info(err)
 
-    def extract_shot_representation(self, inputs: torch.Tensor) -> torch.Tensor:
+    def extract_shot_representation(self, inputs: ms.Tensor) -> ms.Tensor:
         """ inputs [b s k c h w] -> output [b d] """
         assert len(inputs.shape) == 6  # (B Shot Keyframe C H W)
         b, s, k, c, h, w = inputs.shape
@@ -64,7 +62,7 @@ class FinetuningWrapper(pl.LightningModule):
         # we extract feature of each key-frame and average them
         inputs = einops.rearrange(inputs, "b s k c h w -> (b s) k c h w", s=s)
         keyframe_repr = [self.visual_encoder(inputs[:, _k]) for _k in range(k)]
-        shot_repr = torch.stack(keyframe_repr).mean(dim=0)  # [k (b s) d] -> [(b s) d]
+        shot_repr = ms.stack(keyframe_repr).mean(dim=0)  # [k (b s) d] -> [(b s) d]
         shot_repr = einops.rearrange(shot_repr, "(b s) d -> b s d", s=s)
         return shot_repr
     
@@ -79,8 +77,8 @@ class FinetuningWrapper(pl.LightningModule):
         x = einops.rearrange(x, "(b s) d -> b s d", s=s, b=b)
         return x
 
-    def shared_step(self, visual_inputs: torch.Tensor, audio_inputs: torch.Tensor) -> torch.Tensor:
-        with torch.no_grad():
+    def shared_step(self, visual_inputs: ms.Tensor, audio_inputs: ms.Tensor) -> ms.Tensor:
+        with ms.no_grad():
             # infer shot encoder
             if self.use_raw_shot:
                 visual_shot_repr = self.extract_shot_representation(visual_inputs)
@@ -105,10 +103,10 @@ class FinetuningWrapper(pl.LightningModule):
             pred = audio_pred
         return pred
 
-    def forward(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
+    def forward(self, x: ms.Tensor, **kwargs) -> ms.Tensor:
         return self.shared_step(x, **kwargs)
 
-    def training_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
+    def training_step(self, batch: ms.Tensor, batch_idx: int) -> ms.Tensor:
         visual_inputs = batch["video_visual"]
         audio_inputs = batch["video_audio"]
         labels = batch["label"].view(-1)
@@ -117,7 +115,7 @@ class FinetuningWrapper(pl.LightningModule):
         # balanced with their numbers
         loss = self.criterion(outputs, labels)
         # write metrics
-        preds = torch.argmax(outputs, dim=1)
+        preds = ms.argmax(outputs, dim=1)
 
         gt_one = labels == 1
         gt_zero = labels == 0
@@ -200,7 +198,7 @@ class FinetuningWrapper(pl.LightningModule):
 
         return loss
 
-    def validation_step(self, batch: torch.Tensor, batch_idx: int):
+    def validation_step(self, batch: ms.Tensor, batch_idx: int):
         vids = batch["vid"]
         sids = batch["sid"]
         visual_inputs = batch["video_visual"]
@@ -208,8 +206,8 @@ class FinetuningWrapper(pl.LightningModule):
         labels = batch["label"]
         outputs = self.shared_step(visual_inputs, audio_inputs)
 
-        prob = F.softmax(outputs, dim=1)
-        preds = torch.argmax(prob, dim=1)
+        prob = softmax(outputs, dim=1)
+        preds = ms.argmax(prob, dim=1)
         self.acc_metric.update(
             prob[:, 1], labels
         )  # prob[:,1] is confidence score for boundary
@@ -224,32 +222,32 @@ class FinetuningWrapper(pl.LightningModule):
 
         # update acc.
         acc = self.acc_metric.compute()
-        torch.cuda.synchronize()
+        ms.cuda.synchronize()
         assert isinstance(acc, dict)
         score.update(acc)
         # update average precision (AP).
         ap, _, _ = self.ap_metric.compute()  # * 100.
         ap *= 100.0
-        torch.cuda.synchronize()
-        assert isinstance(ap, torch.Tensor)
+        ms.cuda.synchronize()
+        assert isinstance(ap, ms.Tensor)
         score.update({"ap": ap})
         # update AUC-ROC
         auc, _, _ = self.auc_metric.compute()
         auc *= 100.0
-        torch.cuda.synchronize()
-        assert isinstance(auc, torch.Tensor)
+        ms.cuda.synchronize()
+        assert isinstance(auc, ms.Tensor)
         score.update({"auc": auc})
         # update F1 score.
         f1 = self.f1_metric.compute() * 100.0
-        torch.cuda.synchronize()
-        assert isinstance(f1, torch.Tensor)
+        ms.cuda.synchronize()
+        assert isinstance(f1, ms.Tensor)
         score.update({"f1": f1})
         # update recall, mIoU score.
         recall, recall_at_3s, miou = self.movienet_metric.compute()
-        torch.cuda.synchronize()
-        assert isinstance(recall, torch.Tensor)
-        assert isinstance(recall_at_3s, torch.Tensor)
-        assert isinstance(miou, torch.Tensor)
+        ms.cuda.synchronize()
+        assert isinstance(recall, ms.Tensor)
+        assert isinstance(recall_at_3s, ms.Tensor)
+        assert isinstance(miou, ms.Tensor)
         score.update({"recall": recall * 100.0})
         score.update({"recall@3s": recall_at_3s * 100})
         score.update({"mIoU": miou * 100})
@@ -279,7 +277,7 @@ class FinetuningWrapper(pl.LightningModule):
         with open(os.path.join(self.log_dir, "all_score.json"), "w") as fopen:
             json.dump(score, fopen, indent=4, ensure_ascii=False)
 
-    def test_step(self, batch: torch.Tensor, batch_idx: int):
+    def test_step(self, batch: ms.Tensor, batch_idx: int):
         return self.validation_step(batch, batch_idx)
 
     def test_epoch_end(self, test_step_outputs):
@@ -319,14 +317,14 @@ class FinetuningWrapper(pl.LightningModule):
         )
         # optimizer
         if self.cfg.TRAIN.OPTIMIZER.name == "sgd":
-            optimizer = torch.optim.SGD(
+            optimizer = ms.optim.SGD(
                 params,
                 lr=self.cfg.TRAIN.OPTIMIZER.lr.scaled_lr,
                 momentum=0.9,
                 weight_decay=weight_decay,
             )
         elif self.cfg.TRAIN.OPTIMIZER.name == "adam":
-            optimizer = torch.optim.Adam(
+            optimizer = ms.optim.Adam(
                 params, lr=self.cfg.TRAIN.OPTIMIZER.lr.scaled_lr
             )
         else:
@@ -343,7 +341,7 @@ class FinetuningWrapper(pl.LightningModule):
 
         if self.cfg.TRAIN.OPTIMIZER.scheduler.name == "cosine_with_linear_warmup":
             scheduler = {
-                "scheduler": torch.optim.lr_scheduler.LambdaLR(
+                "scheduler": ms.optim.lr_scheduler.LambdaLR(
                     optimizer,
                     linear_warmup_decay(warmup_steps, total_steps, cosine=True),
                 ),

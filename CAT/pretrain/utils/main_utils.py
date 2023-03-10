@@ -4,9 +4,9 @@ import os
 import sys
 import easydict
 import hydra
-import pytorch_lightning as pl
-import torch
+import mindspore
 
+from misc.utils import *
 from dataset import get_collate_fn, get_dataset
 from model import get_contextual_relation_network, get_shot_encoder, get_audio_encoder
 from pretrain.loss import get_loss
@@ -53,7 +53,7 @@ def load_pretrained_config(cfg):
 
 
 def init_data_loader(cfg, mode, is_train):
-    data_loader = torch.utils.data.DataLoader(
+    data_loader = ms.utils.data.DataLoader(
         dataset=get_dataset(cfg, mode=mode, is_train=is_train),
         batch_size=cfg.TRAIN.BATCH_SIZE.batch_size_per_proc,
         num_workers=cfg.TRAIN.NUM_WORKERS,

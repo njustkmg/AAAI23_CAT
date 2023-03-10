@@ -1,11 +1,11 @@
 import numbers
 import random
-from typing import Any, Dict
+import mindspore
+import mindspore.dataset.vision
+import mindspore.dataset.transforms as transforms
 
-import torchvision
-import torchvision.transforms.functional as F
-from classy_vision.dataset.transforms import register_transform
-from classy_vision.dataset.transforms.classy_transform import ClassyTransform
+from typing import Any, Dict
+from misc.utils import *
 
 
 @register_transform("VideoRandomColorJitter")
@@ -86,35 +86,35 @@ class VideoRandomColorJitter(ClassyTransform):
         if brightness is not None:
             brightness_factor = random.uniform(brightness[0], brightness[1])
             transforms.append(
-                torchvision.transforms.Lambda(
-                    lambda img: F.adjust_brightness(img, brightness_factor)
+                vision.transforms.Lambda(
+                    lambda img: adjust_brightness(img, brightness_factor)
                 )
             )
 
         if contrast is not None:
             contrast_factor = random.uniform(contrast[0], contrast[1])
             transforms.append(
-                torchvision.transforms.Lambda(
-                    lambda img: F.adjust_contrast(img, contrast_factor)
+                vision.transforms.Lambda(
+                    lambda img: adjust_contrast(img, contrast_factor)
                 )
             )
 
         if saturation is not None:
             saturation_factor = random.uniform(saturation[0], saturation[1])
             transforms.append(
-                torchvision.transforms.Lambda(
-                    lambda img: F.adjust_saturation(img, saturation_factor)
+                vision.transforms.Lambda(
+                    lambda img: adjust_saturation(img, saturation_factor)
                 )
             )
 
         if hue is not None:
             hue_factor = random.uniform(hue[0], hue[1])
             transforms.append(
-                torchvision.transforms.Lambda(lambda img: F.adjust_hue(img, hue_factor))
+                vision.transforms.Lambda(lambda img: F.adjust_hue(img, hue_factor))
             )
 
         random.shuffle(transforms)
-        transform = torchvision.transforms.Compose(transforms)
+        transform = vision.transforms.Compose(transforms)
 
         return transform
 
